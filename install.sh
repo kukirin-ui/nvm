@@ -358,6 +358,9 @@ nvm_check_global_modules() {
   NPM_COMMAND="$(command -v npm 2>/dev/null)" || return 0
   [ -n "${NVM_DIR}" ] && [ -z "${NPM_COMMAND%%"$NVM_DIR"/*}" ] && return 0
 
+  # Under WSL, the Windows `npm` can be on the PATH via interop; skip it
+  [ -f "${NPM_COMMAND%/*}/node.exe" ] && return 0
+
   local NPM_VERSION
   NPM_VERSION="$(npm --version)"
   NPM_VERSION="${NPM_VERSION:--1}"

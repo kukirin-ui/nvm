@@ -1,0 +1,42 @@
+#!/bin/sh
+
+cleanup () {
+  rm -rf "$FAKE_WIN_NODE"
+  PATH="$ORIGINAL_PATH"
+  NVM_DIR="$ORIGINAL_NVM_DIR"
+
+  unset -f setup cleanup die
+  unset message ORIGINAL_PATH ORIGINAL_NVM_DIR FAKE_WIN_NODE
+}
+die () { echo "$@" ; cleanup ; exit 1; }
+
+NVM_ENV=testing \. ../../install.sh
+
+setup () {
+  ORIGINAL_PATH="$PATH"
+  ORIGINAL_NVM_DIR="$NVM_DIR"
+  unset NVM_DIR
+
+  # Mimic "C:\Program Files\nodejs" as seen from WSL: a shell-script `npm` next to `node.exe`
+  FAKE_WIN_NODE="$(pwd)/fake windows nodejs"
+  mkdir -p "$FAKE_WIN_NODE"
+  cat <<'SH' >"$FAKE_WIN_NODE/npm"
+#!/bin/sh
+echo "windows npm was called" >&2
+exit 1
+SH
+  chmod +x "$FAKE_WIN_NODE/npm"
+  touch "$FAKE_WIN_NODE/node.exe"
+  PATH="$FAKE_WIN_NODE:$PATH"
+}
+
+setup
+
+message="$(nvm_check_global_modules 2>&1)"
+[ -z "$message" ] || die "nvm_check_global_modules should not run the Windows npm under WSL; got:\n${message}"
+
+rm -f "$FAKE_WIN_NODE/node.exe"
+message="$(nvm_check_global_modules 2>&1)"
+[ -n "$message" ] || die "nvm_check_global_modules should still run npm when there is no node.exe next to it"
+
+cleanup
